@@ -1,0 +1,29 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI Scanner specific
+ai_inventory.json
+ai_audit_report.json
+.aiscan.toml
+
+# Test coverage
+tarpaulin-report.html
+cobertura.xml
+
+# Benchmarks
+/target/criterion/
+
+# Debug
+*.pdb
