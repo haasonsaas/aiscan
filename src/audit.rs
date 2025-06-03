@@ -244,14 +244,14 @@ impl SecurityAuditor {
         // Estimate tokens and cost
         let model = "gpt-4o";
         let estimated_tokens = self.token_counter.estimate_tokens(&prompt, model);
-        
+
         // Estimate token usage (assuming roughly equal input/output for analysis)
         let token_usage = TokenUsage {
             prompt_tokens: estimated_tokens,
             completion_tokens: estimated_tokens / 2, // Rough estimate
             total_tokens: estimated_tokens + estimated_tokens / 2,
         };
-        
+
         let estimated_cost = self.token_counter.estimate_cost(&token_usage, model);
 
         // Check budget
@@ -259,7 +259,7 @@ impl SecurityAuditor {
             let mut budget = self.budget.lock().await;
             budget.consume(token_usage.total_tokens)?;
             budget.consume_cost(estimated_cost)?;
-            
+
             // Log remaining budget
             if let Some(remaining_tokens) = budget.remaining_tokens() {
                 tracing::info!("Remaining token budget: {}", remaining_tokens);

@@ -194,7 +194,7 @@ impl FileParser {
 
         // Extract parameters from the call
         let params = self.extract_params(call_node, content);
-        
+
         Some(AiCall {
             file: path.to_path_buf(),
             line: start.row + 1,
@@ -239,36 +239,39 @@ impl FileParser {
 
         lines[start..end].join("\n")
     }
-    
+
     fn extract_params(&self, node: tree_sitter::Node, content: &str) -> serde_json::Value {
         let args_text = &content[node.start_byte()..node.end_byte().min(content.len())];
-        
+
         // Try to extract common parameters using regex
         let mut params = serde_json::Map::new();
-        
+
         // Extract temperature
         if let Some(temp) = self.extract_param_value(args_text, "temperature") {
             params.insert("temperature".to_string(), serde_json::Value::String(temp));
         }
-        
+
         // Extract max_tokens
         if let Some(max_tokens) = self.extract_param_value(args_text, "max_tokens") {
-            params.insert("max_tokens".to_string(), serde_json::Value::String(max_tokens));
+            params.insert(
+                "max_tokens".to_string(),
+                serde_json::Value::String(max_tokens),
+            );
         }
-        
+
         // Extract api_key presence (but not the actual value for security)
         if args_text.contains("api_key") {
             params.insert("has_api_key".to_string(), serde_json::Value::Bool(true));
         }
-        
+
         // Extract messages if present
         if args_text.contains("messages") {
             params.insert("has_messages".to_string(), serde_json::Value::Bool(true));
         }
-        
+
         serde_json::Value::Object(params)
     }
-    
+
     fn extract_param_value(&self, text: &str, param_name: &str) -> Option<String> {
         let pattern = format!(r#"{}[\s=:]+["']?([^"',\s\)]]+)"#, param_name);
         if let Ok(regex) = regex::Regex::new(&pattern) {

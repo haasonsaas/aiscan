@@ -54,9 +54,10 @@ async fn main() -> Result<()> {
                 }
             } else {
                 audit_result.print_findings();
-                
+
                 // Display budget status
-                let (used_tokens, max_tokens, used_usd, max_usd) = scanner.get_budget_status().await;
+                let (used_tokens, max_tokens, used_usd, max_usd) =
+                    scanner.get_budget_status().await;
                 println!("\n{}", "Budget Status:".bold());
                 if let Some(max_t) = max_tokens {
                     println!("  Tokens: {} / {} used", used_tokens, max_t);
@@ -84,16 +85,17 @@ async fn main() -> Result<()> {
             };
 
             if json {
-                let (used_tokens, max_tokens, used_usd, max_usd) = scanner.get_budget_status().await;
+                let (used_tokens, max_tokens, used_usd, max_usd) =
+                    scanner.get_budget_status().await;
                 let mut report = report::generate_ci_report(&inventory, &audit_result)?;
-                
+
                 // Update budget status with actual values
                 report.summary.budget_status.tokens_used = used_tokens;
                 report.summary.budget_status.tokens_limit = max_tokens;
                 report.summary.budget_status.cost_usd = used_usd;
                 report.summary.budget_status.cost_limit = max_usd;
                 report.summary.budget_status.exceeded = scanner.is_budget_exceeded().await;
-                
+
                 println!("{}", serde_json::to_string(&report)?);
             }
 

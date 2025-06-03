@@ -144,7 +144,7 @@ impl Scanner {
         let budget = self.budget.lock().await;
         budget.is_exceeded()
     }
-    
+
     pub async fn get_budget_status(&self) -> (usize, Option<usize>, f64, Option<f64>) {
         let budget = self.budget.lock().await;
         (
