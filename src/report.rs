@@ -172,7 +172,7 @@ pub fn generate_report(inventory: &Inventory, audit_result: &AuditResult) -> Res
 
 pub fn generate_ci_report(inventory: &Inventory, audit_result: &AuditResult) -> Result<CiReport> {
     let has_critical_issues = audit_result.has_high_severity();
-    let budget_exceeded = false; // TODO: Get from scanner
+    let budget_exceeded = false; // TODO: Get from scanner - would need to pass budget info
 
     let mut failures = Vec::new();
 
@@ -209,7 +209,7 @@ pub fn generate_ci_report(inventory: &Inventory, audit_result: &AuditResult) -> 
             ai_calls_found: inventory.ai_calls.len(),
             security_issues: audit_result.summary.total_findings,
             budget_status: BudgetStatus {
-                tokens_used: 0, // TODO: Get from budget
+                tokens_used: 0, // Would need to be passed from scanner
                 tokens_limit: Some(50_000),
                 cost_usd: 0.0,
                 cost_limit: Some(20.0),

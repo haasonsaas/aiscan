@@ -140,9 +140,19 @@ impl Scanner {
         auditor.audit(inventory, &self.config).await
     }
 
-    pub fn is_budget_exceeded(&self) -> bool {
-        let budget = self.budget.blocking_lock();
+    pub async fn is_budget_exceeded(&self) -> bool {
+        let budget = self.budget.lock().await;
         budget.is_exceeded()
+    }
+    
+    pub async fn get_budget_status(&self) -> (usize, Option<usize>, f64, Option<f64>) {
+        let budget = self.budget.lock().await;
+        (
+            budget.used_tokens,
+            budget.max_tokens,
+            budget.used_usd,
+            budget.max_usd,
+        )
     }
 
     fn collect_files(&self, path: &Path) -> Result<Vec<PathBuf>> {

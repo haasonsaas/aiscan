@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::config::Config;
 use crate::core::Inventory;
-use crate::cost::{Budget, TokenCounter};
+use crate::cost::{Budget, TokenCounter, TokenUsage};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityFinding {
@@ -235,19 +235,38 @@ impl SecurityAuditor {
     async fn llm_analysis(
         &self,
         inventory: &Inventory,
-        config: &Config,
+        _config: &Config,
     ) -> Result<Vec<SecurityFinding>> {
         // Prepare context for LLM
         let inventory_json = serde_json::to_string_pretty(inventory)?;
         let prompt = self.create_security_prompt(&inventory_json);
 
-        // Estimate tokens
-        let estimated_tokens = self.token_counter.estimate_tokens(&prompt, "gpt-4o");
+        // Estimate tokens and cost
+        let model = "gpt-4o";
+        let estimated_tokens = self.token_counter.estimate_tokens(&prompt, model);
+        
+        // Estimate token usage (assuming roughly equal input/output for analysis)
+        let token_usage = TokenUsage {
+            prompt_tokens: estimated_tokens,
+            completion_tokens: estimated_tokens / 2, // Rough estimate
+            total_tokens: estimated_tokens + estimated_tokens / 2,
+        };
+        
+        let estimated_cost = self.token_counter.estimate_cost(&token_usage, model);
 
         // Check budget
         {
             let mut budget = self.budget.lock().await;
-            budget.consume(estimated_tokens)?;
+            budget.consume(token_usage.total_tokens)?;
+            budget.consume_cost(estimated_cost)?;
+            
+            // Log remaining budget
+            if let Some(remaining_tokens) = budget.remaining_tokens() {
+                tracing::info!("Remaining token budget: {}", remaining_tokens);
+            }
+            if let Some(remaining_usd) = budget.remaining_usd() {
+                tracing::info!("Remaining cost budget: ${:.2}", remaining_usd);
+            }
         }
 
         // Mock LLM response for now (replace with actual API call)

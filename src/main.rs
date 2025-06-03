@@ -9,6 +9,7 @@ mod report;
 
 use anyhow::Result;
 use clap::Parser;
+use colored::*;
 use tracing_subscriber;
 
 use crate::cli::{Cli, Commands};
@@ -53,6 +54,16 @@ async fn main() -> Result<()> {
                 }
             } else {
                 audit_result.print_findings();
+                
+                // Display budget status
+                let (used_tokens, max_tokens, used_usd, max_usd) = scanner.get_budget_status().await;
+                println!("\n{}", "Budget Status:".bold());
+                if let Some(max_t) = max_tokens {
+                    println!("  Tokens: {} / {} used", used_tokens, max_t);
+                }
+                if let Some(max_u) = max_usd {
+                    println!("  Cost: ${:.2} / ${:.2} used", used_usd, max_u);
+                }
             }
         }
         Commands::Ci {
@@ -66,14 +77,23 @@ async fn main() -> Result<()> {
 
             let exit_code = if audit_result.has_high_severity() {
                 1
-            } else if scanner.is_budget_exceeded() {
+            } else if scanner.is_budget_exceeded().await {
                 137
             } else {
                 0
             };
 
             if json {
-                let report = report::generate_ci_report(&inventory, &audit_result)?;
+                let (used_tokens, max_tokens, used_usd, max_usd) = scanner.get_budget_status().await;
+                let mut report = report::generate_ci_report(&inventory, &audit_result)?;
+                
+                // Update budget status with actual values
+                report.summary.budget_status.tokens_used = used_tokens;
+                report.summary.budget_status.tokens_limit = max_tokens;
+                report.summary.budget_status.cost_usd = used_usd;
+                report.summary.budget_status.cost_limit = max_usd;
+                report.summary.budget_status.exceeded = scanner.is_budget_exceeded().await;
+                
                 println!("{}", serde_json::to_string(&report)?);
             }
 
