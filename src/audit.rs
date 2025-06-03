@@ -175,57 +175,61 @@ impl SecurityAuditor {
 
         for call in &inventory.ai_calls {
             // Check for hardcoded API keys
-            if call.context.contains("api_key") || call.context.contains("API_KEY") {
-                if !call.context.contains("env") && !call.context.contains("getenv") {
-                    findings.push(SecurityFinding {
-                        id: format!("STATIC-001-{}:{}", call.file.display(), call.line),
-                        severity: Severity::High,
-                        file: call.file.display().to_string(),
-                        line: call.line,
-                        issue_type: IssueType::ApiKeyExposure,
-                        description: "Potential hardcoded API key detected".to_string(),
-                        rationale: "API keys should be stored in environment variables or secure vaults, not in code".to_string(),
-                        fix: "Move API key to environment variable or use a secrets management service".to_string(),
-                    });
-                }
+            if (call.context.contains("api_key") || call.context.contains("API_KEY"))
+                && !call.context.contains("env")
+                && !call.context.contains("getenv")
+            {
+                findings.push(SecurityFinding {
+                    id: format!("STATIC-001-{}:{}", call.file.display(), call.line),
+                    severity: Severity::High,
+                    file: call.file.display().to_string(),
+                    line: call.line,
+                    issue_type: IssueType::ApiKeyExposure,
+                    description: "Potential hardcoded API key detected".to_string(),
+                    rationale: "API keys should be stored in environment variables or secure vaults, not in code".to_string(),
+                    fix: "Move API key to environment variable or use a secrets management service".to_string(),
+                });
             }
 
             // Check for missing input validation
-            if call.wrapper.contains("chat") || call.wrapper.contains("completion") {
-                if !call.context.contains("validate") && !call.context.contains("sanitize") {
-                    findings.push(SecurityFinding {
-                        id: format!("STATIC-002-{}:{}", call.file.display(), call.line),
-                        severity: Severity::Medium,
-                        file: call.file.display().to_string(),
-                        line: call.line,
-                        issue_type: IssueType::MissingInputValidation,
-                        description: "AI call without apparent input validation".to_string(),
-                        rationale: "User inputs to AI models should be validated to prevent prompt injection".to_string(),
-                        fix: "Add input validation before passing to AI model".to_string(),
-                    });
-                }
+            if (call.wrapper.contains("chat") || call.wrapper.contains("completion"))
+                && !call.context.contains("validate")
+                && !call.context.contains("sanitize")
+            {
+                findings.push(SecurityFinding {
+                    id: format!("STATIC-002-{}:{}", call.file.display(), call.line),
+                    severity: Severity::Medium,
+                    file: call.file.display().to_string(),
+                    line: call.line,
+                    issue_type: IssueType::MissingInputValidation,
+                    description: "AI call without apparent input validation".to_string(),
+                    rationale:
+                        "User inputs to AI models should be validated to prevent prompt injection"
+                            .to_string(),
+                    fix: "Add input validation before passing to AI model".to_string(),
+                });
             }
 
             // Check for unrestricted model access
             if call
                 .model
                 .as_ref()
-                .map_or(false, |m| m.contains("gpt-4") || m.contains("claude"))
+                .is_some_and(|m| m.contains("gpt-4") || m.contains("claude"))
+                && !call.context.contains("limit")
+                && !call.context.contains("quota")
             {
-                if !call.context.contains("limit") && !call.context.contains("quota") {
-                    findings.push(SecurityFinding {
-                        id: format!("STATIC-003-{}:{}", call.file.display(), call.line),
-                        severity: Severity::Medium,
-                        file: call.file.display().to_string(),
-                        line: call.line,
-                        issue_type: IssueType::UnrestrictedModelAccess,
-                        description: "Expensive model usage without rate limiting".to_string(),
-                        rationale: "High-cost models should have usage limits to prevent abuse"
-                            .to_string(),
-                        fix: "Implement rate limiting or usage quotas for expensive model calls"
-                            .to_string(),
-                    });
-                }
+                findings.push(SecurityFinding {
+                    id: format!("STATIC-003-{}:{}", call.file.display(), call.line),
+                    severity: Severity::Medium,
+                    file: call.file.display().to_string(),
+                    line: call.line,
+                    issue_type: IssueType::UnrestrictedModelAccess,
+                    description: "Expensive model usage without rate limiting".to_string(),
+                    rationale: "High-cost models should have usage limits to prevent abuse"
+                        .to_string(),
+                    fix: "Implement rate limiting or usage quotas for expensive model calls"
+                        .to_string(),
+                });
             }
         }
 

@@ -10,7 +10,6 @@ mod report;
 use anyhow::Result;
 use clap::Parser;
 use colored::*;
-use tracing_subscriber;
 
 use crate::cli::{Cli, Commands};
 use crate::core::Scanner;

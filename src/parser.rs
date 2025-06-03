@@ -212,11 +212,9 @@ impl FileParser {
         let text = &content[start..end.min(content.len())];
 
         // Extract the function/method name from the call
-        if let Some(func_name) = text.split('(').next() {
-            Some(func_name.trim().to_string())
-        } else {
-            None
-        }
+        text.split('(')
+            .next()
+            .map(|func_name| func_name.trim().to_string())
     }
 
     fn extract_model_from_args(&self, node: tree_sitter::Node, content: &str) -> Option<String> {

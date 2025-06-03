@@ -166,10 +166,10 @@ impl Scanner {
 
         for entry in walker {
             let entry = entry?;
-            if entry.file_type().map_or(false, |ft| ft.is_file()) {
-                if self.is_supported_file(entry.path()) {
-                    files.push(entry.path().to_path_buf());
-                }
+            if entry.file_type().is_some_and(|ft| ft.is_file())
+                && self.is_supported_file(entry.path())
+            {
+                files.push(entry.path().to_path_buf());
             }
         }
 

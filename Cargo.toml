@@ -73,6 +73,10 @@ pretty_assertions = "1.4"
 name = "parser_bench"
 harness = false
 
+[lib]
+name = "aiscan"
+path = "src/lib.rs"
+
 [profile.release]
 lto = true
 codegen-units = 1

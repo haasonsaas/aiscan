@@ -106,6 +106,12 @@ static COMPILED_PATTERNS: Lazy<HashMap<String, Regex>> = Lazy::new(|| {
 
 pub struct PatternMatcher;
 
+impl Default for PatternMatcher {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl PatternMatcher {
     pub fn new() -> Self {
         Self
