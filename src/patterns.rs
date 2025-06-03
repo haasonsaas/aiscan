@@ -47,7 +47,7 @@ static AI_PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| {
         // LangChain patterns
         Pattern {
             name: "langchain_llm".to_string(),
-            regex: r#"(?:from\s+langchain[.\w]*\s+import|langchain[.\w]*\.)(?:ChatOpenAI|Claude|ChatAnthropic|LLM)"#.to_string(),
+            regex: r#"from\s+langchain\.[\w.]+\s+import\s+(?:ChatOpenAI|Claude|ChatAnthropic|LLM)"#.to_string(),
             wrapper_type: "langchain".to_string(),
             extract_model: true,
         },
