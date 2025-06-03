@@ -98,10 +98,12 @@ impl Report {
 }
 
 pub fn generate_report(inventory: &Inventory, audit_result: &AuditResult) -> Result<Report> {
-    let mut wrapper_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    let mut model_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut wrapper_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    let mut model_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut files_with_ai: std::collections::HashSet<String> = std::collections::HashSet::new();
-    
+
     for call in &inventory.ai_calls {
         *wrapper_counts.entry(call.wrapper.clone()).or_insert(0) += 1;
         if let Some(model) = &call.model {
@@ -109,23 +111,25 @@ pub fn generate_report(inventory: &Inventory, audit_result: &AuditResult) -> Res
         }
         files_with_ai.insert(call.file.display().to_string());
     }
-    
+
     let unique_wrappers: Vec<String> = wrapper_counts.keys().cloned().collect();
     let mut model_usage: Vec<ModelUsage> = model_counts
         .into_iter()
         .map(|(model, count)| ModelUsage { model, count })
         .collect();
     model_usage.sort_by(|a, b| b.count.cmp(&a.count));
-    
-    let top_issues = audit_result.findings
+
+    let top_issues = audit_result
+        .findings
         .iter()
         .map(|f| format!("{:?}", f.issue_type))
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .take(5)
         .collect();
-    
-    let findings = audit_result.findings
+
+    let findings = audit_result
+        .findings
         .iter()
         .map(|f| Finding {
             id: f.id.clone(),
@@ -137,9 +141,9 @@ pub fn generate_report(inventory: &Inventory, audit_result: &AuditResult) -> Res
             fix: f.fix.clone(),
         })
         .collect();
-    
+
     let recommendations = generate_recommendations(inventory, audit_result);
-    
+
     Ok(Report {
         metadata: ReportMetadata {
             version: "1.0.0".to_string(),
@@ -169,24 +173,26 @@ pub fn generate_report(inventory: &Inventory, audit_result: &AuditResult) -> Res
 pub fn generate_ci_report(inventory: &Inventory, audit_result: &AuditResult) -> Result<CiReport> {
     let has_critical_issues = audit_result.has_high_severity();
     let budget_exceeded = false; // TODO: Get from scanner
-    
+
     let mut failures = Vec::new();
-    
+
     if has_critical_issues {
         failures.push(CiFailure {
             reason: "Critical security issues found".to_string(),
-            details: format!("{} critical/high severity findings", 
-                audit_result.summary.critical + audit_result.summary.high),
+            details: format!(
+                "{} critical/high severity findings",
+                audit_result.summary.critical + audit_result.summary.high
+            ),
         });
     }
-    
+
     if budget_exceeded {
         failures.push(CiFailure {
             reason: "Budget exceeded".to_string(),
             details: "Token or cost limits have been exceeded".to_string(),
         });
     }
-    
+
     let exit_code = if has_critical_issues {
         1
     } else if budget_exceeded {
@@ -194,7 +200,7 @@ pub fn generate_ci_report(inventory: &Inventory, audit_result: &AuditResult) -> 
     } else {
         0
     };
-    
+
     Ok(CiReport {
         passed: failures.is_empty(),
         exit_code,
@@ -216,35 +222,56 @@ pub fn generate_ci_report(inventory: &Inventory, audit_result: &AuditResult) -> 
 
 fn generate_recommendations(inventory: &Inventory, audit_result: &AuditResult) -> Vec<String> {
     let mut recommendations = Vec::new();
-    
+
     // Check for API key exposure
-    if audit_result.findings.iter().any(|f| matches!(f.issue_type, crate::audit::IssueType::ApiKeyExposure)) {
-        recommendations.push("Use environment variables or a secrets management service for API keys".to_string());
+    if audit_result
+        .findings
+        .iter()
+        .any(|f| matches!(f.issue_type, crate::audit::IssueType::ApiKeyExposure))
+    {
+        recommendations.push(
+            "Use environment variables or a secrets management service for API keys".to_string(),
+        );
     }
-    
+
     // Check for missing validation
-    if audit_result.findings.iter().any(|f| matches!(f.issue_type, crate::audit::IssueType::MissingInputValidation)) {
-        recommendations.push("Implement input validation and sanitization for all user inputs to AI models".to_string());
+    if audit_result.findings.iter().any(|f| {
+        matches!(
+            f.issue_type,
+            crate::audit::IssueType::MissingInputValidation
+        )
+    }) {
+        recommendations.push(
+            "Implement input validation and sanitization for all user inputs to AI models"
+                .to_string(),
+        );
     }
-    
+
     // Check for expensive model usage
-    let expensive_models = inventory.ai_calls.iter()
+    let expensive_models = inventory
+        .ai_calls
+        .iter()
         .filter_map(|c| c.model.as_ref())
         .filter(|m| m.contains("gpt-4") || m.contains("claude"))
         .count();
-    
+
     if expensive_models > 10 {
-        recommendations.push("Consider using cheaper models for non-critical tasks to reduce costs".to_string());
+        recommendations.push(
+            "Consider using cheaper models for non-critical tasks to reduce costs".to_string(),
+        );
     }
-    
+
     // General recommendations
     if inventory.ai_calls.len() > 50 {
         recommendations.push("Implement centralized AI call management and monitoring".to_string());
     }
-    
+
     if audit_result.summary.total_findings == 0 {
-        recommendations.push("Great job! Continue to monitor AI usage and stay updated on security best practices".to_string());
+        recommendations.push(
+            "Great job! Continue to monitor AI usage and stay updated on security best practices"
+                .to_string(),
+        );
     }
-    
+
     recommendations
 }

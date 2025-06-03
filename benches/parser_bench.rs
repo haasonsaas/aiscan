@@ -1,6 +1,6 @@
-use criterion::{criterion_group, criterion_main, Criterion};
 use aiscan::parser::FileParser;
 use aiscan::patterns::PatternMatcher;
+use criterion::{criterion_group, criterion_main, Criterion};
 use std::path::PathBuf;
 
 fn benchmark_tree_sitter_parsing(c: &mut Criterion) {
@@ -23,9 +23,7 @@ def process_request(prompt):
 "#;
 
     c.bench_function("tree_sitter_parse_python", |b| {
-        b.iter(|| {
-            parser.parse_file(&PathBuf::from("test.py"), sample_code)
-        })
+        b.iter(|| parser.parse_file(&PathBuf::from("test.py"), sample_code))
     });
 }
 
@@ -56,11 +54,13 @@ for i in range(10):
 "#;
 
     c.bench_function("pattern_matching", |b| {
-        b.iter(|| {
-            matcher.find_matches(&PathBuf::from("test.py"), sample_code)
-        })
+        b.iter(|| matcher.find_matches(&PathBuf::from("test.py"), sample_code))
     });
 }
 
-criterion_group!(benches, benchmark_tree_sitter_parsing, benchmark_pattern_matching);
+criterion_group!(
+    benches,
+    benchmark_tree_sitter_parsing,
+    benchmark_pattern_matching
+);
 criterion_main!(benches);

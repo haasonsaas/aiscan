@@ -1,10 +1,10 @@
+mod audit;
 mod cli;
 mod config;
 mod core;
+mod cost;
 mod parser;
 mod patterns;
-mod cost;
-mod audit;
 mod report;
 
 use anyhow::Result;
@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
-    
+
     match cli.command {
         Commands::Init { path } => {
             config::init_config(&path)?;
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
         Commands::Scan { path, output } => {
             let scanner = Scanner::new()?;
             let inventory = scanner.scan_directory(&path).await?;
-            
+
             if let Some(output_path) = output {
                 inventory.save_to_file(&output_path)?;
                 println!("Inventory saved to {}", output_path.display());
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
             let scanner = Scanner::new()?;
             let inventory = scanner.scan_directory(&path).await?;
             let audit_result = scanner.audit_inventory(&inventory).await?;
-            
+
             if json || output.is_some() {
                 let report = report::generate_report(&inventory, &audit_result)?;
                 if let Some(output_path) = output {
@@ -55,11 +55,15 @@ async fn main() -> Result<()> {
                 audit_result.print_findings();
             }
         }
-        Commands::Ci { path, baseline: _, json } => {
+        Commands::Ci {
+            path,
+            baseline: _,
+            json,
+        } => {
             let scanner = Scanner::new()?;
             let inventory = scanner.scan_directory(&path).await?;
             let audit_result = scanner.audit_inventory(&inventory).await?;
-            
+
             let exit_code = if audit_result.has_high_severity() {
                 1
             } else if scanner.is_budget_exceeded() {
@@ -67,12 +71,12 @@ async fn main() -> Result<()> {
             } else {
                 0
             };
-            
+
             if json {
                 let report = report::generate_ci_report(&inventory, &audit_result)?;
                 println!("{}", serde_json::to_string(&report)?);
             }
-            
+
             std::process::exit(exit_code);
         }
     }

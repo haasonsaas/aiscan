@@ -44,7 +44,7 @@ pub enum IssueType {
     LLM08ExcessiveAgency,
     LLM09Overreliance,
     LLM10ModelTheft,
-    
+
     // Additional security concerns
     ApiKeyExposure,
     MissingInputValidation,
@@ -73,20 +73,23 @@ impl AuditResult {
     pub fn has_high_severity(&self) -> bool {
         self.summary.critical > 0 || self.summary.high > 0
     }
-    
+
     pub fn print_findings(&self) {
         println!("\n{}", "Security Audit Results".bold().yellow());
         println!("{}", "=".repeat(50));
-        
+
         if self.findings.is_empty() {
             println!("{}", "No security issues found!".green());
             return;
         }
-        
+
         println!("\n{}", "Summary:".bold());
         println!("  Total findings: {}", self.summary.total_findings);
         if self.summary.critical > 0 {
-            println!("  {} Critical", self.summary.critical.to_string().red().bold());
+            println!(
+                "  {} Critical",
+                self.summary.critical.to_string().red().bold()
+            );
         }
         if self.summary.high > 0 {
             println!("  {} High", self.summary.high.to_string().red());
@@ -100,11 +103,12 @@ impl AuditResult {
         if self.summary.info > 0 {
             println!("  {} Info", self.summary.info.to_string().white());
         }
-        
+
         println!("\n{}", "Findings:".bold());
         for (i, finding) in self.findings.iter().enumerate() {
-            println!("\n{}. {} [{}]", 
-                i + 1, 
+            println!(
+                "\n{}. {} [{}]",
+                i + 1,
                 finding.description.bold(),
                 self.severity_color(&finding.severity)
             );
@@ -114,7 +118,7 @@ impl AuditResult {
             println!("   Fix: {}", finding.fix.green());
         }
     }
-    
+
     fn severity_color(&self, severity: &Severity) -> ColoredString {
         match severity {
             Severity::Critical => "CRITICAL".red().bold(),
@@ -135,18 +139,17 @@ impl SecurityAuditor {
     pub fn new(budget: Arc<Mutex<Budget>>) -> Self {
         Self {
             budget,
-            token_counter: TokenCounter::new().unwrap_or_else(|_| {
-                panic!("Failed to initialize token counter")
-            }),
+            token_counter: TokenCounter::new()
+                .unwrap_or_else(|_| panic!("Failed to initialize token counter")),
         }
     }
-    
+
     pub async fn audit(&self, inventory: &Inventory, config: &Config) -> Result<AuditResult> {
         let mut findings = Vec::new();
-        
+
         // Static analysis findings
         findings.extend(self.static_analysis(inventory)?);
-        
+
         // LLM-powered analysis if budget allows
         if !inventory.ai_calls.is_empty() {
             match self.llm_analysis(inventory, config).await {
@@ -156,20 +159,20 @@ impl SecurityAuditor {
                 }
             }
         }
-        
+
         // Deduplicate and sort findings
         findings.sort_by_key(|f| (f.file.clone(), f.line, f.id.clone()));
         findings.dedup_by_key(|f| (f.file.clone(), f.line, f.id.clone()));
-        
+
         // Calculate summary
         let summary = self.calculate_summary(&findings);
-        
+
         Ok(AuditResult { findings, summary })
     }
-    
+
     fn static_analysis(&self, inventory: &Inventory) -> Result<Vec<SecurityFinding>> {
         let mut findings = Vec::new();
-        
+
         for call in &inventory.ai_calls {
             // Check for hardcoded API keys
             if call.context.contains("api_key") || call.context.contains("API_KEY") {
@@ -186,7 +189,7 @@ impl SecurityAuditor {
                     });
                 }
             }
-            
+
             // Check for missing input validation
             if call.wrapper.contains("chat") || call.wrapper.contains("completion") {
                 if !call.context.contains("validate") && !call.context.contains("sanitize") {
@@ -202,9 +205,13 @@ impl SecurityAuditor {
                     });
                 }
             }
-            
+
             // Check for unrestricted model access
-            if call.model.as_ref().map_or(false, |m| m.contains("gpt-4") || m.contains("claude")) {
+            if call
+                .model
+                .as_ref()
+                .map_or(false, |m| m.contains("gpt-4") || m.contains("claude"))
+            {
                 if !call.context.contains("limit") && !call.context.contains("quota") {
                     findings.push(SecurityFinding {
                         id: format!("STATIC-003-{}:{}", call.file.display(), call.line),
@@ -213,54 +220,60 @@ impl SecurityAuditor {
                         line: call.line,
                         issue_type: IssueType::UnrestrictedModelAccess,
                         description: "Expensive model usage without rate limiting".to_string(),
-                        rationale: "High-cost models should have usage limits to prevent abuse".to_string(),
-                        fix: "Implement rate limiting or usage quotas for expensive model calls".to_string(),
+                        rationale: "High-cost models should have usage limits to prevent abuse"
+                            .to_string(),
+                        fix: "Implement rate limiting or usage quotas for expensive model calls"
+                            .to_string(),
                     });
                 }
             }
         }
-        
+
         Ok(findings)
     }
-    
-    async fn llm_analysis(&self, inventory: &Inventory, config: &Config) -> Result<Vec<SecurityFinding>> {
+
+    async fn llm_analysis(
+        &self,
+        inventory: &Inventory,
+        config: &Config,
+    ) -> Result<Vec<SecurityFinding>> {
         // Prepare context for LLM
         let inventory_json = serde_json::to_string_pretty(inventory)?;
         let prompt = self.create_security_prompt(&inventory_json);
-        
+
         // Estimate tokens
         let estimated_tokens = self.token_counter.estimate_tokens(&prompt, "gpt-4o");
-        
+
         // Check budget
         {
             let mut budget = self.budget.lock().await;
             budget.consume(estimated_tokens)?;
         }
-        
+
         // Mock LLM response for now (replace with actual API call)
         // In production, this would call OpenAI/Anthropic API
-        let llm_findings = vec![
-            SecurityFinding {
-                id: "LLM-001".to_string(),
-                severity: Severity::High,
-                file: inventory.ai_calls.first()
-                    .map(|c| c.file.display().to_string())
-                    .unwrap_or_default(),
-                line: inventory.ai_calls.first()
-                    .map(|c| c.line)
-                    .unwrap_or(0),
-                issue_type: IssueType::LLM01PromptInjection,
-                description: "Potential prompt injection vulnerability".to_string(),
-                rationale: "User input is concatenated directly into prompts without sanitization".to_string(),
-                fix: "Use prompt templates and validate/sanitize all user inputs".to_string(),
-            },
-        ];
-        
+        let llm_findings = vec![SecurityFinding {
+            id: "LLM-001".to_string(),
+            severity: Severity::High,
+            file: inventory
+                .ai_calls
+                .first()
+                .map(|c| c.file.display().to_string())
+                .unwrap_or_default(),
+            line: inventory.ai_calls.first().map(|c| c.line).unwrap_or(0),
+            issue_type: IssueType::LLM01PromptInjection,
+            description: "Potential prompt injection vulnerability".to_string(),
+            rationale: "User input is concatenated directly into prompts without sanitization"
+                .to_string(),
+            fix: "Use prompt templates and validate/sanitize all user inputs".to_string(),
+        }];
+
         Ok(llm_findings)
     }
-    
+
     fn create_security_prompt(&self, inventory_json: &str) -> String {
-        format!(r#"You are a senior AI-security reviewer. Analyze the following AI/LLM usage inventory for security vulnerabilities.
+        format!(
+            r#"You are a senior AI-security reviewer. Analyze the following AI/LLM usage inventory for security vulnerabilities.
 
 Focus on OWASP LLM Top 10 (2024) and MITRE ATT&CK issues:
 - LLM01: Prompt Injection
@@ -287,15 +300,17 @@ Return a JSON array of findings:
   "description": "Brief description",
   "rationale": "Why this is a security issue",
   "fix": "How to fix it"
-}}]"#, inventory_json)
+}}]"#,
+            inventory_json
+        )
     }
-    
+
     fn calculate_summary(&self, findings: &[SecurityFinding]) -> AuditSummary {
         let mut summary = AuditSummary {
             total_findings: findings.len(),
             ..Default::default()
         };
-        
+
         for finding in findings {
             match finding.severity {
                 Severity::Critical => summary.critical += 1,
@@ -305,7 +320,7 @@ Return a JSON array of findings:
                 Severity::Info => summary.info += 1,
             }
         }
-        
+
         summary
     }
 }

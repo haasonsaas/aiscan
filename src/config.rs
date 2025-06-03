@@ -74,7 +74,7 @@ impl Default for Config {
 impl Config {
     pub fn load_or_default() -> Result<Self> {
         let config_path = Path::new(".aiscan.toml");
-        
+
         if config_path.exists() {
             let content = std::fs::read_to_string(config_path)?;
             let config: Config = toml::from_str(&content)?;
@@ -83,7 +83,7 @@ impl Config {
             Ok(Self::default())
         }
     }
-    
+
     pub fn save(&self, path: &Path) -> Result<()> {
         let toml_string = toml::to_string_pretty(self)?;
         std::fs::write(path, toml_string)?;
@@ -93,14 +93,17 @@ impl Config {
 
 pub fn init_config(path: &Path) -> Result<()> {
     let config_path = path.join(".aiscan.toml");
-    
+
     if config_path.exists() {
-        anyhow::bail!("Configuration file already exists at {}", config_path.display());
+        anyhow::bail!(
+            "Configuration file already exists at {}",
+            config_path.display()
+        );
     }
-    
+
     let default_config = Config::default();
     default_config.save(&config_path)?;
-    
+
     // Also create a .gitignore entry
     let gitignore_path = path.join(".gitignore");
     if gitignore_path.exists() {
@@ -110,7 +113,7 @@ pub fn init_config(path: &Path) -> Result<()> {
             std::fs::write(&gitignore_path, content)?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -118,17 +121,17 @@ pub fn init_config(path: &Path) -> Result<()> {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    
+
     #[test]
     fn test_config_save_load() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join(".aiscan.toml");
-        
+
         let config = Config::default();
         config.save(&config_path).unwrap();
-        
+
         assert!(config_path.exists());
-        
+
         let loaded = Config::load_or_default().unwrap();
         assert_eq!(loaded.limits.max_tokens, config.limits.max_tokens);
     }
