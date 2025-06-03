@@ -1,5 +1,8 @@
 # aiscan - AI Risk Scanner
 
+[![CI](https://github.com/haasonsaas/aiscan/actions/workflows/ci.yml/badge.svg)](https://github.com/haasonsaas/aiscan/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A blazing-fast Rust CLI tool that inventories AI/LLM usage in codebases, audits for security vulnerabilities, and enforces spend limits.
 
 ## Features
@@ -13,31 +16,207 @@ A blazing-fast Rust CLI tool that inventories AI/LLM usage in codebases, audits 
 
 ## Installation
 
+### From Source
+
 ```bash
-# From source
+git clone https://github.com/haasonsaas/aiscan.git
+cd aiscan
 cargo install --path .
-
-# From crates.io (coming soon)
-cargo install aiscan
-
-# Homebrew (coming soon)
-brew install haasonsaas/tap/aiscan
 ```
 
-## Quick Start
+### Pre-built Binaries (Coming Soon)
 
 ```bash
-# Initialize configuration
-aiscan init
+# macOS
+curl -L https://github.com/haasonsaas/aiscan/releases/latest/download/aiscan-darwin-amd64 -o aiscan
+chmod +x aiscan
 
-# Scan current directory for AI usage
+# Linux
+curl -L https://github.com/haasonsaas/aiscan/releases/latest/download/aiscan-linux-amd64 -o aiscan
+chmod +x aiscan
+
+# Windows
+curl -L https://github.com/haasonsaas/aiscan/releases/latest/download/aiscan-windows-amd64.exe -o aiscan.exe
+```
+
+## Usage
+
+### Initialize Configuration
+
+First, create a configuration file in your project:
+
+```bash
+aiscan init
+```
+
+This creates `.aiscan.toml` with default settings:
+
+```toml
+[limits]
+max_tokens = 50000      # Maximum tokens for LLM analysis
+max_requests = 100      # Maximum API requests
+max_usd = 20.0         # Maximum spend in USD
+
+[scan]
+exclude_patterns = ["node_modules/**", "venv/**", ".git/**"]
+include_hidden = false
+follow_symlinks = false
+max_file_size_mb = 10
+
+[audit]
+llm_model = "gpt-4o"
+temperature = 0.1
+enable_llm_audit = true
+```
+
+### Scan for AI Usage
+
+Inventory all AI/LLM calls in your codebase:
+
+```bash
+# Scan current directory
 aiscan scan .
 
-# Run security audit
+# Scan specific directory
+aiscan scan src/
+
+# Save results to file
+aiscan scan . --output inventory.json
+```
+
+Example output:
+```
+AI Usage Inventory Summary
+==================================================
+Files scanned: 152
+Total lines: 12,543
+AI/LLM calls found: 23
+Scan duration: 245ms
+
+Top AI Wrappers:
+  openai_api - 12 calls
+  langchain - 6 calls
+  anthropic_api - 3 calls
+  autogen - 2 calls
+```
+
+### Security Audit
+
+Run a comprehensive security audit:
+
+```bash
+# Audit current directory
 aiscan audit .
 
-# CI mode with JSON output
+# Save detailed report
+aiscan audit . --output report.json
+
+# Output as JSON
+aiscan audit . --json
+```
+
+Example findings:
+```
+Security Audit Results
+==================================================
+
+Summary:
+  Total findings: 5
+  2 High
+  3 Medium
+
+Findings:
+
+1. Potential hardcoded API key detected [HIGH]
+   File: src/config.py:23
+   Type: ApiKeyExposure
+   Rationale: API keys should be stored in environment variables or secure vaults
+   Fix: Move API key to environment variable or use a secrets management service
+
+2. AI call without apparent input validation [MEDIUM]
+   File: src/chat.py:45
+   Type: MissingInputValidation
+   Rationale: User inputs to AI models should be validated to prevent prompt injection
+   Fix: Add input validation before passing to AI model
+```
+
+### CI/CD Integration
+
+Use in your CI pipeline:
+
+```bash
+# Returns exit code: 0=clean, 1=vulnerabilities, 137=budget exceeded
 aiscan ci . --json
+```
+
+#### GitHub Actions Example
+
+```yaml
+name: AI Security Scan
+on: [push, pull_request]
+
+jobs:
+  ai-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install aiscan
+        run: |
+          curl -L https://github.com/haasonsaas/aiscan/releases/latest/download/aiscan-linux-amd64 -o aiscan
+          chmod +x aiscan
+          
+      - name: Run AI security scan
+        run: ./aiscan ci . --json
+```
+
+#### GitLab CI Example
+
+```yaml
+ai-security-scan:
+  stage: test
+  script:
+    - curl -L https://github.com/haasonsaas/aiscan/releases/latest/download/aiscan-linux-amd64 -o aiscan
+    - chmod +x aiscan
+    - ./aiscan ci . --json
+  allow_failure: false
+```
+
+### Advanced Usage
+
+#### Custom Patterns
+
+Add custom detection patterns in `.aiscan.toml`:
+
+```toml
+[[audit.custom_rules]]
+id = "CUSTOM-001"
+pattern = "my_custom_ai_wrapper"
+severity = "high"
+message = "Custom AI wrapper detected without rate limiting"
+```
+
+#### Baseline Mode
+
+Suppress unchanged findings in CI:
+
+```bash
+# Generate baseline
+aiscan audit . --output baseline.json
+
+# Check against baseline
+aiscan ci . --baseline baseline.json
+```
+
+#### Environment Variables
+
+```bash
+# Set API key for LLM-powered analysis
+export OPENAI_API_KEY=sk-...
+
+# Override config settings
+export AISCAN_MAX_TOKENS=100000
+export AISCAN_MAX_USD=50.0
 ```
 
 ## Configuration
